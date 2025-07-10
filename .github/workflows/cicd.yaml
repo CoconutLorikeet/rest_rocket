@@ -1,0 +1,66 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Clippy (linter)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run Tests
+        run: cargo test --all-features --all-targets -- --nocapture
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Upload release binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binary
+          path: target/release/
+          retention-days: 7
+
+  deploy:
+    needs: build-lint-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-binary
+          path: ./release-binary
+
+      # Add your deployment steps here, for example:
+      # - name: Deploy to production
+      #   run: echo "Deploying..."
+
+      - name: Deployment placeholder
+        run: echo "Add your deployment logic here."
